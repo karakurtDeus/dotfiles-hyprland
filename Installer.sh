@@ -91,7 +91,6 @@ system_pkgs() {
 
     # code editor
     "vim"
-#    "neovim"
 
     # version control / build
     "git"
@@ -106,14 +105,10 @@ system_pkgs() {
     "gvfs"
     "gvfs-smb"
 
-    # launcher
-    "rofi"
-
     # web utils
     "wget"
 
     # screen shot
-#    "flameshot"
 
     # network
     "networkmanager" # for nmtui and other
@@ -125,16 +120,11 @@ system_pkgs() {
     "pipewire-alsa"
 
     # copy / paste
-#    "xclip"
-#    "xsel"
-#    "clipmenu"
-#    "clipnotify"
     "wl-clipboard"
+    "cliphist"
 
     # shell
     "btop"
-#    "zsh"
-#    "zsh-completions"
     "eza"
     "bat"
     "fzf"
@@ -150,14 +140,10 @@ system_pkgs() {
     "ufw"
 
     # bar
-#    "polybar"
 
     # git
     "git"
     "less"
-
-    # notification
-#    "dunst"
 
     # bluetooth
     "bluez"
@@ -170,7 +156,6 @@ system_pkgs() {
     "xdg-desktop-portal-hyprland"
 
     # lockscreen
-#    "xorg-xdpyinfo"
 
     # network tools
     "rsync"
@@ -186,14 +171,7 @@ system_pkgs() {
     "hyprland"
     "uwsm"
     "quickshell"
-#    "bspwm"
-#    "xorg-xsetroot"
-#    "pacman-contrib"
-#    "picom"
-#    "sxhkd"
-#    "xorg-server"
-#    "xorg-xinit"
-#    "xorg-xset"
+    "pacman-contrib"
     "feh" # background
     # just need xd
     #"cmatrix"
@@ -250,6 +228,7 @@ personal_pkgs() {
     logo "Install personal package"
     local listPkgs=(
       "keepassxc"
+      "code"
       "telegram-desktop"
       "obsidian"
       "discord"
@@ -265,7 +244,7 @@ personal_pkgs() {
     )
     installPkgs "${listPkgs[@]}"
     local listPkgs=(
-      "cursor-bin"
+     #"cursor-bin"
       "spotify"
       #"winbox"
     )
@@ -415,8 +394,6 @@ install_yay_pkgs_std() {
   logo "Yay std pkgs"
 
   listPkgs=(
-    #"i3lock-color"
-    #"qogir-cursor-theme"
   )
   install_yay_pkgs "${listPkgs[@]}"
 
