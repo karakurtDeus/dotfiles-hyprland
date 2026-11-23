@@ -38,7 +38,6 @@ hl.monitor({
 -- Set programs that you use
 local terminal    = 'kitty'
 local fileManager = "thunar"
-local menu = "qs ipc -c panel call launcher toggle"
 
 
 -------------------
@@ -95,6 +94,32 @@ hl.env("HYPRCURSOR_SIZE", "24")
 ---- LOOK AND FEEL ----
 -----------------------
 
+-- Read the same accent as the Quickshell panel when Hyprland loads its config.
+local function read_active_border()
+    local fallback = "rgba(cebff0ff)"
+    local config_dir = os.getenv("XDG_CONFIG_HOME")
+    if not config_dir or config_dir == "" then
+        config_dir = os.getenv("HOME") .. "/.config"
+    end
+
+    local palette = io.open(config_dir .. "/quickshell/panel/theme/Colors.qml", "r")
+    if not palette then
+        return fallback
+    end
+
+    local contents = palette:read("*a") or ""
+    palette:close()
+    local hex = contents:match([=[property%s+color%s+accent%s*:%s*["']#(%x+)["']]=])
+    if hex and #hex == 6 then
+        return "rgba(" .. hex .. "ff)"
+    end
+    if hex and #hex == 8 then
+        -- Qt writes alpha first, while Hyprland expects it last.
+        return "rgba(" .. hex:sub(3) .. hex:sub(1, 2) .. ")"
+    end
+    return fallback
+end
+
 -- Refer to https://wiki.hypr.land/configuring/core/config-options/
 hl.config({
     general = {
@@ -104,7 +129,7 @@ hl.config({
         border_size = 2,
 
         col = {
-            active_border   = { colors = {"rgba(33ccffee)", "rgba(00ff99ee)"}, angle = 45 },
+            active_border   = read_active_border(),
             inactive_border = "rgba(595959aa)",
         },
 
@@ -222,6 +247,8 @@ hl.config({
         disable_hyprland_logo   = false, -- If true disables the random hyprland logo / anime girl background. :(
         disable_hyprland_logo = true,
         disable_splash_rendering = true,
+        session_lock_xray = true,
+        session_lock_blur = true,
     },
 })
 
@@ -279,6 +306,18 @@ hl.device({
 
 local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 
+-- USER KEYBINDS
+local userMod = mainMod .. " + CTRL"
+hl.bind(userMod .. " + R", hl.dsp.exec_cmd("qs ipc -c panel call launcher toggle"))
+hl.bind(userMod .. " + V", hl.dsp.exec_cmd("qs ipc -c panel call clipboard toggle"))
+hl.bind(userMod .. " + W", hl.dsp.exec_cmd("qs ipc -c panel call wallpaper toggle"))
+hl.bind(userMod .. " + P", hl.dsp.exec_cmd("qs ipc -c panel call profile toggle"))
+hl.bind(userMod .. " + S", hl.dsp.exec_cmd("flameshot gui"))
+hl.bind(userMod .. " + X", hl.dsp.exec_cmd("qs ipc -c panel call power toggle"))
+hl.bind(userMod .. " + L", hl.dsp.exec_cmd([[
+    qs ipc -c panel call power lock || qs -n -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/panel/LockScreen.qml"
+]]), { dont_inhibit = true })
+
 -- Example binds, see https://wiki.hypr.land/configuring/core/binds/ for more
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
 -- local closeWindowBind = hl.bind(mainMod .. " + C", hl.dsp.window.close())
@@ -287,16 +326,10 @@ local closeWindowBind = hl.bind(
     hl.dsp.exec_cmd("sh -c 'kill -9 $(hyprctl activewindow -j | jq -r .pid)'")
 )
 
--- screenshot
-hl.bind("CTRL + SHIFT  + S", hl.dsp.exec_cmd("flameshot gui"))
-
 -- closeWindowBind:set_enabled(false)
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("qs ipc -c panel call clipboard toggle"))
-hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
-hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("qs ipc -c panel call wallpaper toggle"))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
 

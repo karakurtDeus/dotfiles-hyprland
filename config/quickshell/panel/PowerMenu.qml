@@ -129,7 +129,7 @@ PanelWindow {
 
                 Repeater {
                     model: [
-                        { action: "", label: "Lock screen", icon: "\ue899" },
+                        { action: "lock", label: "Lock screen", icon: "\ue899" },
                         { action: "poweroff", label: "Power off", icon: "\uf8c7" },
                         { action: "logout", label: "Log out", icon: "\ue9ba" },
                         { action: "reboot", label: "Restart", icon: "\uf053" }
@@ -139,12 +139,11 @@ PanelWindow {
                         id: button
 
                         required property var modelData
-                        readonly property bool available: modelData.action !== ""
 
                         width: 68
                         height: width
                         radius: 18
-                        color: pointer.containsMouse && available ? Colors.accent : Colors.group
+                        color: pointer.containsMouse ? Colors.accent : Colors.group
                         Accessible.role: Accessible.Button
                         Accessible.name: modelData.label
 
@@ -153,21 +152,20 @@ PanelWindow {
                             text: button.modelData.icon
                             font.family: root.iconFamily
                             font.pixelSize: 32
-                            color: !button.available ? Colors.disabledIcon
-                                : pointer.containsMouse ? Colors.panel : Colors.text
+                            color: pointer.containsMouse ? Colors.panel : Colors.text
                         }
 
                         MouseArea {
                             id: pointer
                             anchors.fill: parent
                             hoverEnabled: true
-                            cursorShape: button.available ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: root.request(button.modelData.action)
                         }
 
                         Controls.ToolTip.visible: pointer.containsMouse
                         Controls.ToolTip.delay: 450
-                        Controls.ToolTip.text: available ? modelData.label : "Lock screen unavailable"
+                        Controls.ToolTip.text: modelData.label
                     }
                 }
             }

@@ -2,27 +2,25 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import Qt.labs.folderlistmodel
-import QtMultimedia
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import Quickshell.Wayland
-import Quickshell.Widgets
 import "theme"
 
 PanelWindow {
     id: root
 
+    property string textFontFamily: "monospace"
+    property date currentDate: new Date()
     property string profileDirectory: Quickshell.env("HOME") + "/.config/hypr/profile"
     readonly property string userName: Quickshell.env("USER") || Quickshell.env("HOME").split("/").pop()
     readonly property string helper: Quickshell.shellPath("profile-data.py")
     readonly property var sink: Pipewire.defaultAudioSink
     property bool opened: false
     property real slide: opened ? 1 : 0
-    property var media: ({})
-    property bool refreshingMedia: false
     property var stats: ({})
+    readonly property int avatarDiameter: Math.min(222, implicitHeight - 40, Math.round(implicitWidth * 0.30))
 
     anchors.top: true
     exclusionMode: ExclusionMode.Ignore
@@ -42,10 +40,8 @@ PanelWindow {
     }
 
     onOpenedChanged: {
-        if (opened) {
-            mediaRefresh.restart()
+        if (opened)
             Qt.callLater(() => drawer.forceActiveFocus())
-        }
     }
 
     function percent(value): string {
@@ -69,55 +65,6 @@ PanelWindow {
         return (bytes / 1024).toFixed(1) + " KiB/s"
     }
 
-    FolderListModel {
-        id: profileFiles
-        folder: "file://" + root.profileDirectory
-        showDirs: false
-        showOnlyReadable: true
-        showHidden: false
-    }
-
-    Connections {
-        target: profileFiles
-        enabled: root.opened
-
-        function onRowsInserted() { mediaRefresh.restart() }
-        function onRowsRemoved() { mediaRefresh.restart() }
-        function onModelReset() { mediaRefresh.restart() }
-        function onLayoutChanged() { mediaRefresh.restart() }
-        function onDataChanged() { mediaRefresh.restart() }
-    }
-
-    Timer {
-        id: mediaRefresh
-        interval: 120
-        onTriggered: {
-            if (!root.opened)
-                return
-            if (mediaScan.running)
-                restart()
-            else
-                mediaScan.running = true
-        }
-    }
-
-    Process {
-        id: mediaScan
-        command: ["python3", root.helper, "media", root.profileDirectory]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (text.trim()) {
-                    const next = JSON.parse(text)
-                    if (next.url !== root.media.url || next.modified !== root.media.modified) {
-                        root.refreshingMedia = true
-                        root.media = next
-                        Qt.callLater(() => root.refreshingMedia = false)
-                    }
-                }
-            }
-        }
-    }
-
     Process {
         command: ["python3", "-u", root.helper, "stats"]
         running: root.opened
@@ -136,7 +83,8 @@ PanelWindow {
     Rectangle {
         id: drawer
         readonly property real progress: Math.min(root.slide, 1)
-        readonly property int textSize: width < 500 ? 11 : 16
+        readonly property bool compact: width < 500
+        readonly property int textSize: compact ? 10 : 14
 
         width: parent.width
         height: parent.height
@@ -151,141 +99,126 @@ PanelWindow {
 
         RowLayout {
             anchors.fill: parent
-            anchors.margins: drawer.width < 500 ? 12 : 24
-            spacing: drawer.width < 500 ? 12 : 32
+            anchors.margins: drawer.compact ? 12 : 24
+            spacing: drawer.compact ? 12 : 28
 
-            ClippingRectangle {
-                id: portrait
-                readonly property int diameter: Math.min(222, drawer.height - 40, Math.round(drawer.width * 0.30))
-                Layout.preferredWidth: diameter
-                Layout.preferredHeight: diameter
+            ProfileAvatar {
+                Layout.preferredWidth: root.avatarDiameter
+                Layout.preferredHeight: root.avatarDiameter
                 Layout.alignment: Qt.AlignVCenter
-                radius: width / 2
-                color: Colors.group
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: !root.media.url || !avatar.item || !avatar.item.frameReady
-                    text: root.userName.charAt(0).toUpperCase()
-                    font.pixelSize: portrait.width * 0.35
-                    color: Colors.accent
-                }
-
-                Loader {
-                    id: avatar
-                    anchors.fill: parent
-                    active: (root.opened || root.slide > 0) && !!root.media.url && !root.refreshingMedia
-                    sourceComponent: root.media.kind === "video" ? video
-                        : root.media.kind === "animated" ? animation : still
-                }
-
-                Component {
-                    id: still
-                    Image {
-                        readonly property bool frameReady: status === Image.Ready
-                        source: root.media.url ? root.media.url + "?modified=" + root.media.modified : ""
-                        fillMode: Image.PreserveAspectCrop
-                        sourceSize.width: Math.round(width * 2)
-                        sourceSize.height: Math.round(height * 2)
-                        asynchronous: true
-                    }
-                }
-
-                Component {
-                    id: animation
-                    AnimatedImage {
-                        readonly property bool frameReady: status === AnimatedImage.Ready
-                        source: root.media.url ? root.media.url + "?modified=" + root.media.modified : ""
-                        fillMode: Image.PreserveAspectCrop
-                        playing: root.opened
-                        cache: false
-                    }
-                }
-
-                Component {
-                    id: video
-                    VideoOutput {
-                        id: output
-                        property bool frameReady: false
-                        fillMode: VideoOutput.PreserveAspectCrop
-
-                        MediaPlayer {
-                            id: player
-                            source: root.media.url ?? ""
-                            videoOutput: output
-                            loops: MediaPlayer.Infinite
-                            autoPlay: root.opened
-                        }
-
-                        Connections {
-                            target: root
-                            function onOpenedChanged() {
-                                if (root.opened)
-                                    player.play()
-                                else
-                                    player.pause()
-                            }
-                        }
-
-                        Connections {
-                            target: output.videoSink
-                            function onVideoFrameChanged() { output.frameReady = true }
-                        }
-                    }
-                }
+                userName: root.userName
+                textFontFamily: root.textFontFamily
+                profileDirectory: root.profileDirectory
+                playbackActive: root.opened
+                mediaVisible: root.opened || root.slide > 0
             }
 
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 Layout.alignment: Qt.AlignVCenter
-                spacing: drawer.width < 500 ? 12 : 18
+                spacing: drawer.compact ? 10 : 13
 
-                Item {
+                Column {
+                    id: profileHeader
+
                     Layout.fillWidth: true
-                    implicitHeight: userLabel.implicitHeight
+                    Layout.leftMargin: statCard.padding
+                    Layout.rightMargin: statCard.padding
+                    spacing: 3
 
                     Text {
-                        id: userLabel
-                        width: (parent.width + statsGrid.columnSpacing) / 2
+                        width: parent.width
                         text: root.userName
+                        height: drawer.compact ? 28 : 35
                         textFormat: Text.PlainText
                         horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight
-                        color: Colors.text
-                        font.pixelSize: drawer.width < 500 ? 20 : 30
+                        color: Colors.accent
+                        font.pixelSize: drawer.compact ? 19 : 24
+                        font.weight: Font.Medium
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: root.currentDate.toLocaleString(Qt.locale("en_US"), "dddd, MMMM d, yyyy")
+                        height: drawer.compact ? 15 : 19
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        elide: Text.ElideRight
+                        color: Colors.mutedText
+                        font.family: root.textFontFamily
+                        font.pixelSize: drawer.compact ? 10 : 13
                     }
                 }
 
-                GridLayout {
-                    id: statsGrid
+                Rectangle {
+                    id: statCard
+
+                    readonly property int padding: drawer.compact ? 8 : 16
                     Layout.fillWidth: true
-                    columns: 2
-                    uniformCellWidths: true
-                    rowSpacing: drawer.width < 500 ? 8 : 13
-                    columnSpacing: drawer.width < 500 ? 7 : 28
+                    Layout.preferredHeight: statsGrid.implicitHeight + padding * 2
+                    radius: 14
+                    color: Colors.group
 
-                    Repeater {
-                        model: [
-                            ["Uptime", root.uptime(root.stats.uptime)],
-                            ["Audio", root.sink?.audio?.muted ? "Muted" : root.percent(
-                                root.sink?.audio ? Math.round(root.sink.audio.volume * 100) : null)],
-                            ["CPU", root.percent(root.stats.cpu)],
-                            ["GPU", root.percent(root.stats.gpu)],
-                            ["RAM", root.percent(root.stats.memory)],
-                            ["Download", root.speed(root.stats.download)],
-                            ["Upload", root.speed(root.stats.upload)],
-                            ["Battery", root.percent(root.stats.battery)]
-                        ]
+                    GridLayout {
+                        id: statsGrid
 
-                        delegate: Text {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            text: modelData[0] + "  " + modelData[1]
-                            textFormat: Text.PlainText
-                            elide: Text.ElideRight
-                            font.pixelSize: drawer.textSize
-                            color: Colors.mutedText
+                        anchors.fill: parent
+                        anchors.margins: statCard.padding
+                        columns: 2
+                        uniformCellWidths: true
+                        rowSpacing: drawer.compact ? 3 : 5
+                        columnSpacing: drawer.compact ? 8 : 28
+
+                        Repeater {
+                            model: [
+                                ["Uptime", root.uptime(root.stats.uptime)],
+                                ["Audio", root.sink?.audio?.muted ? "Muted" : root.percent(
+                                    root.sink?.audio ? Math.round(root.sink.audio.volume * 100) : null)],
+                                ["CPU", root.percent(root.stats.cpu)],
+                                ["Battery", root.percent(root.stats.battery)],
+                                ["RAM", root.percent(root.stats.memory)],
+                                [drawer.compact ? "Up" : "Upload", root.speed(root.stats.upload)],
+                                ["GPU", root.percent(root.stats.gpu)],
+                                [drawer.compact ? "Down" : "Download", root.speed(root.stats.download)]
+                            ]
+
+                            delegate: Item {
+                                id: metric
+                                required property var modelData
+
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredHeight: drawer.compact ? 16 : 20
+
+                                Text {
+                                    id: metricValue
+
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.min(implicitWidth, parent.width * 0.7)
+                                    text: metric.modelData[1]
+                                    horizontalAlignment: Text.AlignRight
+                                    elide: Text.ElideRight
+                                    font.family: root.textFontFamily
+                                    font.pixelSize: drawer.textSize
+                                    color: Colors.text
+                                }
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.right: metricValue.left
+                                    anchors.rightMargin: drawer.compact ? 3 : 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: metric.modelData[0]
+                                    elide: Text.ElideRight
+                                    font.family: root.textFontFamily
+                                    font.pixelSize: drawer.textSize
+                                    color: Colors.mutedText
+                                }
+                            }
                         }
                     }
                 }

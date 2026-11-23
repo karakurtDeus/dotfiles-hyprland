@@ -12,6 +12,7 @@ Scope {
     id: root
 
     readonly property string folder: Quickshell.env("HOME") + "/.config/hypr/wallpaper"
+    readonly property int preferredPanelWidth: 800
     readonly property int panelHeight: 272
     property string savedName: ""
     property bool opened: false
@@ -27,9 +28,7 @@ Scope {
     readonly property url backgroundSource: (previewWallpaper ?? currentWallpaper)?.url ?? ""
 
     function panelWidth(screenWidth: int): int {
-        const count = wallpapers.length
-        const preferred = count <= 1 ? 360 : (count <= 3 ? 800 : 1280)
-        return Math.min(preferred, screenWidth - 60)
+        return Math.min(preferredPanelWidth, screenWidth - 60)
     }
 
     function refreshFiles(): void {

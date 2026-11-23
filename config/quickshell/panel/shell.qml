@@ -3,11 +3,22 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import Quickshell.Services.SystemTray
 import QtQuick
-import QtQuick.Effects
 import Quickshell.Hyprland
 import "theme"
 
 ShellRoot {
+	id: root
+
+	function lockSession(): void {
+		powerMenu.opened = false
+		profileMenu.opened = false
+		appLauncher.opened = false
+		wallpaperPicker.opened = false
+		trayMenu.visible = false
+		Quickshell.execDetached(["env", "QS_LOCK_AVATAR_SIZE=" + profileMenu.avatarDiameter,
+			"qs", "-n", "-p", Quickshell.shellPath("LockScreen.qml")])
+	}
+
 	PanelWindow {
 		id: leftPanel
 		anchors {
@@ -21,8 +32,8 @@ ShellRoot {
 
 		Text {
 			id: clockLabel
-			anchors.bottom: powerButton.top
-			anchors.bottomMargin: 7
+			anchors.bottom: parent.bottom
+			anchors.bottomMargin: 10
 			anchors.horizontalCenter: parent.horizontalCenter
 
 			text: Qt.formatDateTime(clock.date, "hh\nmm\nAP")
@@ -32,49 +43,19 @@ ShellRoot {
 			font.pixelSize: 20
 		}
 
-		Rectangle {
-			id: powerButton
-			anchors.bottom: parent.bottom
-			anchors.bottomMargin: 8
+		KeyboardLayout {
+			id: keyboardLayout
+			anchors.bottom: clockLabel.top
+			anchors.bottomMargin: 5
 			anchors.horizontalCenter: parent.horizontalCenter
-			width: 32
-			height: width
-			radius: 10
-			color: powerMenu.opened ? WorkspaceSettings.activeBackground
-				: powerPointer.containsMouse ? Colors.control : Colors.clear
-			Accessible.role: Accessible.Button
-			Accessible.name: "Power menu"
-
-			Text {
-				id: powerIcon
-				anchors.centerIn: parent
-				text: "\uf8c7"
-				font.family: powerSymbols.name
-				font.pixelSize: 22
-				color: powerMenu.opened ? WorkspaceSettings.activeDot : WorkspaceSettings.activeBackground
-			}
-
-			MouseArea {
-				id: powerPointer
-				anchors.fill: parent
-				hoverEnabled: true
-				cursorShape: Qt.PointingHandCursor
-				onClicked: {
-					if (!powerMenu.opened) {
-						profileMenu.opened = false
-						appLauncher.opened = false
-						wallpaperPicker.opened = false
-						trayMenu.visible = false
-					}
-					powerMenu.opened = !powerMenu.opened
-				}
-			}
+			font: clockLabel.font
+			color: Colors.accent
 		}
 
 		TrayMenu { id: trayMenu }
 
 		PanelGroup {
-			anchors.bottom: clockLabel.top
+			anchors.bottom: keyboardLayout.top
 			anchors.bottomMargin: 12
 			anchors.horizontalCenter: parent.horizontalCenter
 			spacing: 5
@@ -149,58 +130,13 @@ ShellRoot {
 		}
 
 
-		Rectangle {
-			id: oniButton
-			anchors.top: parent.top
-			anchors.topMargin: 8
-			anchors.horizontalCenter: parent.horizontalCenter
-			width: powerButton.width
-			height: powerButton.height
-			radius: powerButton.radius
-			color: profileMenu.opened ? WorkspaceSettings.activeBackground
-				: oniPointer.containsMouse ? Colors.control : Colors.clear
-			Accessible.role: Accessible.Button
-			Accessible.name: "Oni menu"
-
-			Image {
-				anchors.centerIn: parent
-				width: powerIcon.font.pixelSize
-				height: width
-				source: Qt.resolvedUrl("assets/oni.svg")
-				sourceSize.width: width * 2
-				sourceSize.height: height * 2
-				fillMode: Image.PreserveAspectFit
-				layer.enabled: true
-				layer.effect: MultiEffect {
-					colorization: 1
-					colorizationColor: profileMenu.opened ? WorkspaceSettings.activeDot : WorkspaceSettings.activeBackground
-				}
-			}
-
-			MouseArea {
-				id: oniPointer
-				anchors.fill: parent
-				hoverEnabled: true
-				cursorShape: Qt.PointingHandCursor
-				onClicked: {
-					if (!profileMenu.opened) {
-						powerMenu.opened = false
-						appLauncher.opened = false
-						wallpaperPicker.opened = false
-						trayMenu.visible = false
-					}
-					profileMenu.opened = !profileMenu.opened
-				}
-			}
-		}
-
 		UpdateIndicator {
 			id: updateIndicator
-			buttonSize: powerButton.width
-			iconFont: powerIcon.font
+			buttonSize: 32
+			iconFont: Qt.font({ family: powerSymbols.name, pixelSize: 22 })
 			countFont: clockLabel.font
-			anchors.top: oniButton.bottom
-			anchors.topMargin: 5
+			anchors.top: parent.top
+			anchors.topMargin: 8
 			anchors.horizontalCenter: parent.horizontalCenter
 		}
 
@@ -334,7 +270,9 @@ ShellRoot {
 		iconFamily: powerSymbols.name
 
 		onActionRequested: action => {
-			if (action === "logout")
+			if (action === "lock")
+				root.lockSession()
+			else if (action === "logout")
 				Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exit()"])
 			else if (action === "poweroff" || action === "reboot")
 				Quickshell.execDetached(["systemctl", action])
@@ -343,6 +281,24 @@ ShellRoot {
 
 	AppLauncher {
 		id: appLauncher
+	}
+
+	IpcHandler {
+		target: "power"
+
+		function lock(): void {
+			root.lockSession()
+		}
+
+		function toggle(): void {
+			if (!powerMenu.opened) {
+				profileMenu.opened = false
+				appLauncher.opened = false
+				wallpaperPicker.opened = false
+				trayMenu.visible = false
+			}
+			powerMenu.opened = !powerMenu.opened
+		}
 	}
 
 	IpcHandler {
@@ -379,9 +335,25 @@ ShellRoot {
 
 	ProfileMenu {
 		id: profileMenu
+		currentDate: clock.date
+		textFontFamily: clockLabel.font.family
 		screen: leftPanel.screen
 		implicitWidth: wallpaperPicker.panelWidth(screen?.width ?? 1340)
 		implicitHeight: wallpaperPicker.panelHeight
+	}
+
+	IpcHandler {
+		target: "profile"
+
+		function toggle(): void {
+			if (!profileMenu.opened) {
+				powerMenu.opened = false
+				appLauncher.opened = false
+				wallpaperPicker.opened = false
+				trayMenu.visible = false
+			}
+			profileMenu.opened = !profileMenu.opened
+		}
 	}
 
 	IpcHandler {

@@ -85,6 +85,7 @@ system_pkgs() {
     "ttf-jetbrains-mono-nerd"
     "ttf-font-awesome"
     "ttf-nerd-fonts-symbols"
+    "ttf-material-symbols-variable"
 
     # browser
     "firefox"
@@ -154,6 +155,9 @@ system_pkgs() {
     "xdg-desktop-portal"
     "xdg-desktop-portal-gtk"
     "xdg-desktop-portal-hyprland"
+    "dbus"
+    "dconf"
+    "gsettings-desktop-schemas"
 
     # lockscreen
 
@@ -172,6 +176,10 @@ system_pkgs() {
     "uwsm"
     "quickshell"
     "pacman-contrib"
+    "qt6-multimedia-ffmpeg"
+    "python"
+    "flameshot"
+    "grim"
     "feh" # background
     # just need xd
     #"cmatrix"
@@ -522,6 +530,31 @@ EOF
   return 0
 }
 
+install_gtk_theme() {
+  logo "GTK theme install"
+
+  local themes_dir="${XDG_DATA_HOME:-$HOME/.local/share}/themes"
+  local theme_dir="$themes_dir/Dracula"
+  local -a settings=(gsettings)
+
+  if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
+    settings=(dbus-run-session -- gsettings)
+  fi
+
+  if mkdir -p "$themes_dir" &>>log &&
+    { [[ -r "$theme_dir/gtk-3.0/gtk.css" ]] ||
+      git clone --depth 1 https://github.com/dracula/gtk.git "$theme_dir" &>>log; } &&
+    "${settings[@]}" set org.gnome.desktop.interface gtk-theme Dracula &>>log &&
+    "${settings[@]}" set org.gnome.desktop.interface color-scheme prefer-dark &>>log; then
+    echo "[OK] Dracula GTK theme enabled"
+  else
+    echo "[FAIL] Dracula GTK theme install"
+    exit 1
+  fi
+
+  return 0
+}
+
 ufw_config() {
   logo "UFW config"
 
@@ -564,6 +597,7 @@ main() {
 
   create_std_dir
   system_pkgs
+  install_gtk_theme
   enable_multilib
   install_yay
   install_yay_pkgs_std
