@@ -320,13 +320,7 @@ hl.bind(userMod .. " + L", hl.dsp.exec_cmd([[
 
 -- Example binds, see https://wiki.hypr.land/configuring/core/binds/ for more
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
--- local closeWindowBind = hl.bind(mainMod .. " + C", hl.dsp.window.close())
-local closeWindowBind = hl.bind(
-    mainMod .. " + C",
-    hl.dsp.exec_cmd("sh -c 'kill -9 $(hyprctl activewindow -j | jq -r .pid)'")
-)
-
--- closeWindowBind:set_enabled(false)
+hl.bind(mainMod .. " + C", hl.dsp.window.close())
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
